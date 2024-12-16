@@ -1,0 +1,21 @@
+{
+  "name": "@killiandvcz/helios",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "bun --watch ./test/index.js"
+  },
+  "private": true,
+  "dependencies": {
+    "@killiandvcz/pulse": "^1.0.2",
+    "jose": "^5.9.6",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
