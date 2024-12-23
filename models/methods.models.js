@@ -20,8 +20,14 @@ export class Methods {
             throw new Error("method is not an instance of Method");
         }
 
-        this.validateMethodName(method.name);
+        if (!method.internal) {
+            this.validateMethodName(method.name);
+        }
         this.methods.set(method.name, method);
+        this.helios.events.emit('methods:added', {method, debug: {
+                message: `Method "${method.name}" added`,
+                type: 'info'
+            }});
     }
 
 

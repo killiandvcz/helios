@@ -1,5 +1,6 @@
 import {BaseMessageSchema, StandardMessageSchema} from "../schemas/messages.schemas";
-import {Requests} from "./requests.models";
+import {RequestQueue, Requests} from "./requests.models";
+import {jwtVerify, SignJWT} from "jose";
 
 export class Starlings {
     /**
@@ -24,6 +25,11 @@ export class Starlings {
     add = (starling) => {
         this.starlings.set(starling.ws, starling);
         this.starlingsById.set(starling.id, starling);
+
+        this.helios.events.emit("starling.connected", {starling, debug: {
+                message: "New starling " + starling.id + " connected",
+                type: "connection",
+            }});
     }
 
 
@@ -83,9 +89,10 @@ export class Starling {
         this.id = crypto.randomUUID();
         this.requests = new Requests(this);
         this.messageBuffer = new MessageBuffer(this);
-        this.state = 'connected';
         this.disconnectedAt = null;
         this.disconnectionTimeout = null;
+        this.requestQueue = new RequestQueue(this);
+        this.states = new States(this);
     }
 
 
@@ -120,36 +127,65 @@ export class Starling {
         // On configure le timeout de suppression
         this.disconnectionTimeout = setTimeout(() => {
             if (!this.isConnected) {
+                this.requestQueue.clear();
                 this.close();
+
             }
         }, this.helios.options.disconnectionTTL || 5 * 60 * 1000); // 5 minutes par défaut
+        this.helios.events.emit("starling.disconnected", {starling: this, debug: {
+                message: "Starling" + this.id + " disconnected.  disconnected. Will be removed at " + new Date(this.disconnectedAt + (this.helios.options.disconnectionTTL || 5 * 60 * 1000)) + " if not reconnected",
+                type: "disconnection",
+            }
+        });
     }
 
     close = () => {
-        this.state = 'closed';
         if (this.disconnectionTimeout) {
             clearTimeout(this.disconnectionTimeout);
         }
         this.helios.starlings.remove(this);
+        this.helios.events.emit("starling.closed", {starling: this,
+            debug: {
+                message: "Starling" + this.id + " definitively closed",
+                type: "disconnection",
+            }
+        });
     }
 
-    link = (ws) => {
+    link = async (ws) => {
         this.ws = ws;
-        // this.state = 'connected';
+
+        //TODO: wait for ping/pong
 
         // On envoie les messages en attente
         this.messageBuffer.flush();
+
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        if (this.isConnected) {
+            this.requestQueue.processQueue();
+        }
+
 
         if (this.disconnectionTimeout) {
             clearTimeout(this.disconnectionTimeout);
         }
         this.disconnectedAt = null;
+
+        this.helios.events.emit("starling.reconnected", {starling: this, debug: {
+                message: "Starling" + this.id + " reconnected",
+                type: "connection",
+            }
+        });
     }
 
     unlink = () => {
         this.ws = null;
-        this.state = 'disconnected';
         this.disconnect();
+    }
+
+    cleanup() {
+        this.requests.cancelAll('Connection closed');
     }
 
 
@@ -178,7 +214,7 @@ export class Starling {
                         return false;
                     }
                 } else {
-                    console.log("Base message", baseResult.error.errors);
+
                 }
                 return this.handleJsonMessage(parsed);
             } catch (e) {
@@ -216,6 +252,10 @@ export class Starling {
     handleRequest = (message) => {
         const method = this.helios.methods.get(message.method);
         if (!method) {
+            this.helios.events.emit("starling:request", {starling: this, message, method, debug: {
+                    message: "Received request " + message.method + " but method not found",
+                    type: "request",
+                }});
             return this.standard("error", {
                 error: {
                     code: 'METHOD_NOT_FOUND',
@@ -226,14 +266,22 @@ export class Starling {
                 }
             });
         }
+        this.helios.events.emit("starling:request", {starling: this, message, method, debug: {
+                message: "Received request " + message.method,
+                type: "request",
+            }});
         method.execute(this, message);
     }
 
     handleResponse = (message) => {
-
+        this.requests.handleResponse(message);
     }
 
     handleNotification = (message) => {
+        this.helios.events.emit("starling:notification", {starling: this, message, debug: {
+                message: "Received notification from starling " + this.id,
+                type: "notification",
+            }});
 
     }
 
@@ -242,19 +290,24 @@ export class Starling {
     }
 
     handleJsonMessage = (message) => {
-        console.log("Json message", message);
+        this.helios.events.emit("starling:message", {starling: this, message, debug: {
+                message: "Received json message from starling " + this.id + ": " + JSON.stringify(message),
+                type: "message",
+            }
+        });
     }
 
     handleTextMessage = (message) => {
-        console.log("Text message", message);
+        this.helios.events.emit("starling:message", {starling: this, message, debug: {
+                message: "Received text message from starling " + this.id + ": " + message,
+                type: "message",
+            }
+        });
     }
 
     handleBinaryMessage = (message) => {
         console.log("Binary message", message);
     }
-
-
-    // Send methods
 
     send(message) {
         if (this.isConnected) {
@@ -293,17 +346,27 @@ export class Starling {
         }
     }
 
-    request = (method, payload, options = {}) => {
-        const requestId = crypto.randomUUID();
-        this.standard("request", {
-            requestId,
-            method,
-            payload,
-            options
+
+    /**
+     * @param method {string}
+     * @param payload {Object}
+     * @param options {Object}
+     * @returns {Promise<*>}
+     */
+    request = async (method, payload, options = {}) => {
+        const request = this.requests.create(method, payload, options);
+        return request.execute();
+    }
+
+    /**
+     * @param data {Object}
+     */
+    notify = (data = {}) => {
+        this.standard("notification", {
+            notification: data
         });
     }
 }
-
 
 class MessageBuffer {
     constructor(starling) {
@@ -344,5 +407,87 @@ class MessageBuffer {
 
     clear() {
         this.messages = [];
+    }
+}
+
+class States {
+    constructor(starling) {
+        this.starling = starling;
+        this.states = new Map();
+    }
+
+    /**
+     * @param namespace {string}
+     * @param save {Function} Should return the state data in a serializable format
+     * @param restore {Function} Should restore the state from the data
+     * @param validate {Function} Should return true if the data is valid
+     */
+    register(namespace, {save, restore, validate = () => true}) {
+        if (this.states.has(namespace)) {
+            throw new Error("State namespace " + namespace + " already registered");
+        }
+        this.states.set(namespace, {
+            save: save.bind(this.starling),
+            restore: restore.bind(this.starling),
+            validate: validate.bind(this.starling)
+        });
+    }
+
+    async generateToken() {
+        const state = {};
+        for (const [namespace, provider] of this.states) {
+            try {
+                state[namespace] = await provider.save();
+            } catch (e) {
+                console.error("Failed to save state for namespace " + namespace, e);
+            }
+        }
+
+        return await new SignJWT({
+            starlingId: this.starling.id,
+            state,
+            timestamp: Date.now()
+        }).setProtectedHeader({alg: "HS256"})
+            .setIssuedAt()
+            .setExpirationTime("1h")
+            .sign(this.starling.helios.keys.connection);
+    }
+
+    restore(token) {
+        try {
+            const {payload} = jwtVerify(token, this.starling.helios.keys.connection);
+            const state = payload.state;
+            for (const [namespace, data] of Object.entries(state)) {
+                const provider = this.states.get(namespace);
+                if (provider) {
+                    try {
+                        if (provider.validate(data)) {
+                            provider.restore(data);
+                        }
+                    } catch (e) {
+                        console.error("Failed to restore state for namespace " + namespace, e);
+                    }
+                }
+            }
+
+            this.starling.helios.events.emit("starling:restored", {starling: this.starling, state, debug: {
+                    message: "State restored from token",
+                    type: "connection",
+                }
+            });
+        } catch (e) {
+            console.error("Failed to restore state from token", e);
+        }
+    }
+
+    async notify() {
+        const token = await this.generateToken();
+        this.starling.standard("notification", {
+            type: "starling:token",
+            data: {
+                token,
+                expiresIn: 3600
+            }
+        });
     }
 }

@@ -42,9 +42,15 @@ const StreamCloseSchema = BaseMessageSchema.extend({
     reason: z.string().optional(),
 });
 
+const NotificationSchema = BaseMessageSchema.extend({
+    type: z.literal('notification'),
+    notification: z.any(),
+});
+
 export const StandardMessageSchema = z.discriminatedUnion('type', [
     RequestSchema,
     ResponseSchema,
     StreamInitSchema,
     StreamCloseSchema,
+    NotificationSchema,
 ]);

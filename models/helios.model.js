@@ -1,9 +1,32 @@
 import {Starlings, Starling} from "./starlings.models";
 import {Methods, Method} from "./methods.models";
 import {jwtVerify} from "jose";
+import {internalMethods} from "../methods";
+import {Pulse} from "@killiandvcz/pulse";
+import {heliosDebug} from "../utils/debug.util";
+
+/**
+ * @typedef HeliosOptions {Object}
+ * @property {number?} disconnectionTTL
+ * @property {string?} connectionKey
+ */
+
 
 export class Helios {
+    /**
+     * @param {HeliosOptions} options
+     */
     constructor(options = {}) {
+        /**
+         * @type {Pulse}
+         */
+        this.events = new Pulse();
+
+        /**
+         * @type {PrettyDebug}
+         */
+        this.console = heliosDebug();
+
         /**
          * @type {Starlings}
          */
@@ -18,9 +41,11 @@ export class Helios {
             ...options
         };
         this.keys = {
-            connection: crypto.getRandomValues(new Uint8Array(32)),
+            connection: options.connectionKey || crypto.getRandomValues(new Uint8Array(32)),
         }
-        console.log("Helios created", this.id);
+        this.console.info("Helios server created");
+
+        this.#setupInternalMethods();
     }
 
     /**
@@ -32,6 +57,14 @@ export class Helios {
     method = (name, handler, options = {}) => {
         const method = new Method(this, name, handler, options);
         this.methods.add(method);
+    }
+
+    #setupInternalMethods = () => {
+        Object.entries(internalMethods).forEach(([name, handler]) => {
+            const method = new Method(this, name, handler);
+            method.internal = true;
+            this.methods.add(method);
+        });
     }
 
 
@@ -54,28 +87,24 @@ export class Helios {
      */
     open = async (ws) => {
         let shouldCreateNewStarling = true;
+        let recoverToken;
         try {
-            const recoverToken = ws.data?.recover;
+            recoverToken = ws.data?.recover;
             if (recoverToken) {
                 const {payload: tokenData} = await jwtVerify(recoverToken, this.keys.connection);
 
                 const existingStarling = this.starlings.getById(tokenData.starlingId);
 
                 if (existingStarling) {
-                    // On retire d'abord le lien avec l'ancien websocket
                     this.starlings.unlinkWebSocket(existingStarling);
-                    // On met à jour le websocket et on relie
-                    existingStarling.link(ws);
-
+                    await existingStarling.link(ws);
                     existingStarling.standard("notification", {
                         type: "connection:recovered",
                         timestamp: Date.now()
                     });
-
                     shouldCreateNewStarling = false;
                 }
             }
-
 
         } catch (e) {
             console.warn("Failed to recover starling, creating a new one", e);
@@ -83,6 +112,13 @@ export class Helios {
 
         if (shouldCreateNewStarling) {
             const starling = new Starling(this, ws);
+            if (recoverToken) {
+                try {
+                    starling.states.restore(recoverToken);
+                } catch (e) {
+                    console.warn("Failed to restore state", e);
+                }
+            }
             this.starlings.add(starling);
         }
     }
@@ -106,6 +142,14 @@ export class Helios {
      * @param {Error} error
      */
     error = (ws, error) => {
-        console.error({error});
+        this.console.error("Error", error);
+    }
+
+    debug = () => {
+        this.events.use(e => {
+            if (e.data.debug) {
+                this.console[e.data.debug.type](e.data.debug.message);
+            }
+        })
     }
 }

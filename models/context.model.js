@@ -10,6 +10,9 @@ export class RequestContext {
      * @param requestId {string}
      */
     constructor(starling, payload, {options, timestamp, requestId}) {
+        /**
+         * @type {Starling}
+         */
         this.starling = starling;
         this.payload = payload;
         this.options = options;
@@ -52,7 +55,7 @@ export class RequestContext {
         if (this.finished) {
             throw new Error("Request already finished");
         }
-        this.starling.standard("notification", {
+        this.starling.notify({
             requestId: this.requestId,
             data
         })
