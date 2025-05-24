@@ -3,7 +3,8 @@ import { Request } from "$/messages/request";
 import { Response } from "$/messages/response";
 import { Pulse } from "@killiandvcz/pulse";
 import retry from "p-retry";
-import { RequestContext } from "./context";
+import { ProxyContext, RequestContext } from "./context";
+import { resolve } from "bun";
 
 export class Starling {
     /** 
@@ -18,64 +19,69 @@ export class Starling {
         this.outgoing = new Map();
         /** @type {Map<string, import('../messages/message').Message>} */
         this.incoming = new Map();
+        
+        this.id = crypto.randomUUID();
     }
     
     /** 
     * @param {import('../messages/message').Message} message
     */
-    #emit = (message) => {
+    emit = async message => {
+        if (!(message instanceof Message)) throw new Error("[message] is not an instance of Message");
+        if (!message.id) throw new Error("[message] does not have an id");
+        this.outgoing.set(message.id, message);
+        const string = message.toString();
+        this.events.once(`message:${message.id}:ack`, () => {
+            message.acked = true;
+            this.outgoing.delete(message.id);
+            this.events.emit("message:ack", {starling: this, message});
+        });
         try {
-            this.outgoing.set(message.id, message);
-            const m = message.toString();
-            this.events.once(`message:${message.id}:ack`, () => {
-                message.acked = true;
-                this.outgoing.delete(message.id);
-                this.events.emit("message:ack", {starling: this, message});
-            });
-            retry(async () => new Promise((resolve, reject) => {
-                this.ws.send(m);
+            await retry(async () => new Promise((resolve, reject) => {
+                this.ws.send(string);
                 this.events.emit("message:emitted", {starling: this, message});
                 const timeout = setTimeout(() => {
                     if (message.acked) return resolve();
                     else reject(new Error("Message timed out"));
                 }, 5000);
+
             }), {
                 retries: 5,
             });
+            return true;
         } catch (error) {
             this.events.emit("message:emitted:error", {starling: this, error});
+            return false;
         }
-    };
+    }
     
     /** 
     * @param {any} data
     * @param {import("../messages/message").MessageOptions} options
     */
-    json = (data, options) => this.#emit(Message.outgoing(data, {...options, type: "json" }));
+    json = (data, options) => this.emit(Message.outgoing(data, {...options, type: "json" }));
     
     /** 
     * @param {any} data
     * @param {import("../messages/message").MessageOptions} options
     */
-    text = (data, options) => this.#emit(Message.outgoing(data, {...options, type: "text" }));
+    text = (data, options) => this.emit(Message.outgoing(data, {...options, type: "text" }));
     
     /** 
     * @param {any} data
     * @param {import("../messages/message").MessageOptions} options
     */
-    binary = (data, options) => this.#emit(Message.outgoing(data, {...options, type: "binary" }));
+    binary = (data, options) => this.emit(Message.outgoing(data, {...options, type: "binary" }));
     
     /**
     * @param {string} method
     * @param {any} payload
-    * @param {{
-    *   timeout?: number,
-    * }} options
+    * @param {import("../messages/request").RequestOptions} options
     * @returns {Promise<import('../messages/response').Response>}
     */
     request = (method, payload, options) => new Promise((resolve, reject) => {
-        const request = Request.outgoing(payload, { method });
-        this.#emit(request);
+        const request = Request.outgoing(payload, { method, ...options });
+        this.emit(request);
         const timeout = options?.timeout || 5000;
         const timer = setTimeout(() => this.requests.emit(`request:${request.id}:error`, new Error("Request timed out")), timeout);
         const clear = () => {
@@ -101,19 +107,19 @@ export class Starling {
     * @param {import('../messages/response').ResponseOptions} options
     */
     respond = (request, payload, options) => {
-        if (!request instanceof Request) throw new Error("[request] is not an instance of Request");
+        if (!(request instanceof Request)) throw new Error("[request] is not an instance of Request");
         if (!request.id) throw new Error("[request] does not have an id");
         const incoming = this.incoming.get(request.id);
         if (!incoming) throw new Error("[request] is not an incoming request");
         const response = Response.outgoing(payload, { ...options, requestId: request.id });
-        this.#emit(response);
+        this.emit(response);
     }
     
     /**
     * @param {import('../messages/message').Message} message
     */
     ack = (message) => {
-        if (!message instanceof Message) throw new Error("[message] is not an instance of Message");
+        if (!(message instanceof Message)) throw new Error("[message] is not an instance of Message");
         if (!message.id) throw new Error("[message] does not have an id");
         const idBytes = new TextEncoder().encode(message.id);
         const buffer = new Uint8Array(2 + idBytes.length);
@@ -186,15 +192,26 @@ export class Starling {
             this.ack(incoming);
             this.incoming.set(incoming.id, incoming);
             
+            if (incoming instanceof Message) {
+                if (incoming.headers?.peer && this.helios.proxyHandler) {
+                    console.log("Handling proxy message", incoming.headers.peer);
+                    
+                    const context = new ProxyContext(this, incoming);
+                    this.helios.proxyHandler(context);
+                    return;
+                }
+            }
+            
             if (incoming instanceof Response) {
                 this.requests.emit(`request:${incoming.headers.requestId}:response`, incoming);
             }
+
             if (incoming instanceof Request) {       
                 const method = this.helios.methods.get(incoming.method);
                 if (!method) this.respond(incoming, { error: "Method not found" }, { status: 404 });
                 else {
                     const context = new RequestContext(this, incoming);
-                    method.execute(context)
+                    method.execute(context);
                 }
             }
             if (incoming instanceof Message) {

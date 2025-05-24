@@ -2,11 +2,21 @@ import {Pulse} from "@killiandvcz/pulse";
 import { Starlings } from "../managers/starlings";
 import { Methods } from "../managers/methods";
 
+/**
+ * @callback proxyHandler
+ * @param {import('../core/context').ProxyContext} context
+ * @returns {Promise<any>}
+ */
+
 export class Helios {
     constructor() {
         this.events = new Pulse();
         this.starlings = new Starlings(this);
         this.methods = new Methods(this);
+        
+        this.proxyHandler = null;
+
+
     }
     /** @type {import('bun').Server | null} */
     #server = null;
@@ -58,6 +68,15 @@ export class Helios {
      */
     method = (method, handler) => this.methods.register(method, handler);
 
+
+    /**
+     * @param {proxyHandler} handler
+     * @returns {void}
+     */
+    useProxy = (handler) => {
+        if (typeof handler !== "function") throw new Error("Proxy handler must be a function");
+        this.proxyHandler = handler;
+    }
 
     /**
      * @param {Request} req 

@@ -10,6 +10,7 @@ import { Message } from "./message";
 /**
  * @typedef {Omit<import('./message').MessageOptions, 'type'> & {
  *  method: string,
+ *  timeout?: number,
  * }} RequestOptions
  */
 
