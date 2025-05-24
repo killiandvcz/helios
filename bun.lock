@@ -1,0 +1,42 @@
+{
+  "lockfileVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "helios",
+      "dependencies": {
+        "@killiandvcz/helios": "link:@killiandvcz/helios",
+        "@killiandvcz/pulse": "^1.1.0",
+        "p-retry": "^6.2.1",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+      },
+      "peerDependencies": {
+        "typescript": "^5",
+      },
+    },
+  },
+  "packages": {
+    "@killiandvcz/helios": ["@killiandvcz/helios@link:@killiandvcz/helios", {}],
+
+    "@killiandvcz/pulse": ["@killiandvcz/pulse@1.1.0", "https://packages.killiandvcz.fr/@killiandvcz/pulse/-/pulse-1.1.0.tgz", {}, "sha512-BZ6btdtE/RJgmcF0qKQRf3IM0nhu0LJJhXIyyZ7vdipOdRbgkH67roCahLw9DgTao+uEr/qsHGJ8pVVGh7oyzw=="],
+
+    "@types/bun": ["@types/bun@1.2.13", "https://packages.killiandvcz.fr/@types/bun/-/bun-1.2.13.tgz", { "dependencies": { "bun-types": "1.2.13" } }, "sha512-u6vXep/i9VBxoJl3GjZsl/BFIsvML8DfVDO0RYLEwtSZSp981kEO1V5NwRcO1CPJ7AmvpbnDCiMKo3JvbDEjAg=="],
+
+    "@types/node": ["@types/node@22.15.18", "https://packages.killiandvcz.fr/@types/node/-/node-22.15.18.tgz", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-v1DKRfUdyW+jJhZNEI1PYy29S2YRxMV5AOO/x/SjKmW0acCIOqmbj6Haf9eHAhsPmrhlHSxEhv/1WszcLWV4cg=="],
+
+    "@types/retry": ["@types/retry@0.12.2", "https://packages.killiandvcz.fr/@types/retry/-/retry-0.12.2.tgz", {}, "sha512-XISRgDJ2Tc5q4TRqvgJtzsRkFYNJzZrhTdtMoGVBttwzzQJkPnS3WWTFc7kuDRoPtPakl+T+OfdEUjYJj7Jbow=="],
+
+    "bun-types": ["bun-types@1.2.13", "https://packages.killiandvcz.fr/bun-types/-/bun-types-1.2.13.tgz", { "dependencies": { "@types/node": "*" } }, "sha512-rRjA1T6n7wto4gxhAO/ErZEtOXyEZEmnIHQfl0Dt1QQSB4QV0iP6BZ9/YB5fZaHFQ2dwHFrmPaRQ9GGMX01k9Q=="],
+
+    "is-network-error": ["is-network-error@1.1.0", "https://packages.killiandvcz.fr/is-network-error/-/is-network-error-1.1.0.tgz", {}, "sha512-tUdRRAnhT+OtCZR/LxZelH/C7QtjtFrTu5tXCA8pl55eTUElUHT+GPYV8MBMBvea/j+NxQqVt3LbWMRir7Gx9g=="],
+
+    "p-retry": ["p-retry@6.2.1", "https://packages.killiandvcz.fr/p-retry/-/p-retry-6.2.1.tgz", { "dependencies": { "@types/retry": "0.12.2", "is-network-error": "^1.0.0", "retry": "^0.13.1" } }, "sha512-hEt02O4hUct5wtwg4H4KcWgDdm+l1bOaEy/hWzd8xtXB9BqxTWBBhb+2ImAtH4Cv4rPjV76xN3Zumqk3k3AhhQ=="],
+
+    "retry": ["retry@0.13.1", "https://packages.killiandvcz.fr/retry/-/retry-0.13.1.tgz", {}, "sha512-XQBQ3I8W1Cge0Seh+6gjj03LbmRFWuoszgK9ooCpwYIrhhoO80pfq4cUkU5DkknwfOfFteRwlZ56PYOGYyFWdg=="],
+
+    "typescript": ["typescript@5.8.3", "https://packages.killiandvcz.fr/typescript/-/typescript-5.8.3.tgz", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-p1diW6TqL9L07nNxvRMM7hMMw4c5XOo/1ibL4aAIGmSAt9slTE1Xgw5KWuof2uTOvCg9BY7ZRi+GaF+7sfgPeQ=="],
+
+    "undici-types": ["undici-types@6.21.0", "https://packages.killiandvcz.fr/undici-types/-/undici-types-6.21.0.tgz", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
+  }
+}

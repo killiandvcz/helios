@@ -1,0 +1,20 @@
+{
+  "name": "@killiandvcz/helios",
+  "module": "src/index.js",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "demo": "bun --watch ./test/server.js"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@killiandvcz/helios": "link:@killiandvcz/helios",
+    "@killiandvcz/pulse": "^1.1.0",
+    "p-retry": "^6.2.1"
+  }
+}
