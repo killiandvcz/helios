@@ -1,6 +1,6 @@
-import { Message } from "$/messages/message";
-import { Request } from "$/messages/request";
-import { Response } from "$/messages/response";
+import { Message } from "../messages/message";
+import { Request } from "../messages/request";
+import { Response } from "../messages/response";
 import { Pulse } from "@killiandvcz/pulse";
 import retry from "p-retry";
 import { ProxyContext, RequestContext } from "./context";

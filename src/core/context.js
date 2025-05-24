@@ -23,13 +23,13 @@ export class RequestContext extends Context {
     
     /**
     * @param {any} data
-    * @param {import('$/messages/response').ResponseOptions} options
+    * @param {import('../messages/response').ResponseOptions} options
     */
     success = (data, options = {}) => this.starling.respond(this.request, data, {...options, headers: { status: 200 }, ...(options?.headers || {})});
     
     /** 
     * @param {any} error 
-    * @param {import('$/messages/response').ResponseOptions} options
+    * @param {import('../messages/response').ResponseOptions} options
     */
     error = (error, options = {}) => this.starling.respond(this.request, error, {...options, headers: { status: 500 }, ...(options?.headers || {})});
     
