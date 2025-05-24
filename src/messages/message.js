@@ -50,6 +50,9 @@ export class Message {
     get type() { return this.headers.type; }
     get timestamp() { return this.headers.timestamp; }
     get previousId() { return this.headers.previousId; }
+    get peer() { return this.headers.peer; }
+    get topic() { return this.headers.topic; }
+    get tags() { return this.headers.tags || []; }
 
     /**
      * @template {NewableFunction} T

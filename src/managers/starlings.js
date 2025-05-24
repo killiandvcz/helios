@@ -15,6 +15,7 @@ export class Starlings {
         try {
             const starling = new Starling(this.helios, ws);
             this.connections.set(ws, starling);
+            this.events.emit("new", { starling });
         } catch (error) {
             
         }

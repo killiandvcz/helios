@@ -1,6 +1,7 @@
 import { Response } from '../messages/response';
 import { Message } from '../messages/message';
 import { Request } from '../messages/request';
+import { Starling } from './starling';
 
 export class Context {
     /** @param {import('./starling').Starling} starling */
@@ -99,6 +100,9 @@ export class ProxyContext extends Context {
         });
         return this.starling.emit(response);
     }
+
+
+    get starlings() { return this.starling.helios.starlings }
 
 
 

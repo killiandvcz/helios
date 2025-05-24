@@ -21,6 +21,8 @@ export class Starling {
         this.incoming = new Map();
         
         this.id = crypto.randomUUID();
+
+        this.data = new Map();
     }
     
     /** 
@@ -195,7 +197,6 @@ export class Starling {
             if (incoming instanceof Message) {
                 if (incoming.headers?.peer && this.helios.proxyHandler) {
                     console.log("Handling proxy message", incoming.headers.peer);
-                    
                     const context = new ProxyContext(this, incoming);
                     this.helios.proxyHandler(context);
                     return;
@@ -227,4 +228,23 @@ export class Starling {
     */
     on = (pattern, callback) => this.listeners.on(pattern, event => callback(event.data));
     
+
+
+    set = (key, value) => {
+        if (typeof key !== "string") throw new Error("[key] must be a string");
+        this.data.set(key, value);
+    }
+
+    get = (key) => {
+        if (typeof key !== "string") throw new Error("[key] must be a string");
+        return this.data.get(key);
+    }
+    has = (key) => {
+        if (typeof key !== "string") throw new Error("[key] must be a string");
+        return this.data.has(key);
+    }
+    delete = (key) => {
+        if (typeof key !== "string") throw new Error("[key] must be a string");
+        return this.data.delete(key);
+    }
 }

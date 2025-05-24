@@ -13,10 +13,9 @@ export class Helios {
         this.events = new Pulse();
         this.starlings = new Starlings(this);
         this.methods = new Methods(this);
-        
         this.proxyHandler = null;
 
-
+        this.starlings.events.on("**", event => this.events.emit("starlings:" + event.topic, event.data));
     }
     /** @type {import('bun').Server | null} */
     #server = null;
@@ -107,4 +106,7 @@ export class Helios {
             console.error(`❌ Failed to start Helios server: ${error.message}`);
         }
     }
+
+    /** @param {(starling: import('../core/starling').Starling) => void} callback */
+    onconnection = (callback) => this.events.on("starlings:new", event => callback(event.data.starling));
 }
